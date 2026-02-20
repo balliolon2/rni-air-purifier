@@ -24,7 +24,7 @@ class _TogglePMChartButtonState extends State<TogglePMChartButton> {
         });
       },
       tooltip: 'Chart Toggle',
-      child: pause ? Icon(Icons.loop) : Icon(Icons.pause),
+      child: pause ? Icon(Icons.pause) : Icon(Icons.loop),
     );
   }
 }
