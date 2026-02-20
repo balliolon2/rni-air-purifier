@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:rni_app/features/bluetooth/pages/bluetooth_settings_page.dart';
 import 'package:rni_app/features/main/pages/settings_page.dart';
 import 'home_page.dart';
@@ -29,39 +30,32 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
-        children: [
-          SafeArea(
-            child: NavigationRail(
-              minWidth: 100,
-              extended:
-                  false, //Turn on if you want an expandable Navigation Rail
-              destinations: [
-                NavigationRailDestination(
-                  icon: Icon(Icons.home),
-                  label: Text("Home"),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.bluetooth),
-                  label: Text("Bluetooth Settings"),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.miscellaneous_services),
-                  label: Text("Settings"),
-                ),
-              ],
-              onDestinationSelected: (int index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              selectedIndex: _selectedIndex,
-            ),
+      appBar: AppBar(title: Text(widget.title)),
+      drawer: NavigationDrawer(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          Navigator.pop(context); // Close drawer after selection
+        },
+        children: const [
+          Gap(40),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.home),
+            label: Text('Home'),
           ),
-          const VerticalDivider(width: 1),
-          Expanded(child: _buildPage(_selectedIndex)),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.bluetooth),
+            label: Text('Bluetooth Settings'),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.miscellaneous_services),
+            label: Text('Settings'),
+          ),
         ],
       ),
+      body: _buildPage(_selectedIndex),
     );
   }
 }
