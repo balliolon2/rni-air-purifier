@@ -20,7 +20,6 @@ class ConnectedDevicePage extends StatelessWidget {
             icon: const Icon(Icons.bluetooth_disabled),
             onPressed: () {
               context.read<BluetoothProvider>().disconnect();
-              Navigator.pop(context);
             },
           ),
         ],

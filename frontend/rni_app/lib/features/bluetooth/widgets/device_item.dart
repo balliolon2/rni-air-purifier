@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:rni_app/features/bluetooth/providers/bluetooth_provider.dart';
-import 'package:rni_app/features/bluetooth/pages/connected_device_page.dart';
 
 class DeviceItem extends StatefulWidget {
   const DeviceItem({
@@ -36,21 +35,8 @@ class _DeviceItemState extends State<DeviceItem> {
                   await context.read<BluetoothProvider>().connectToDevice(
                     widget.device,
                   );
-
-                  if (context.mounted) {
-                    // Navigate to device screen after connection
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            ConnectedDevicePage(device: widget.device),
-                      ),
-                    );
-                  }
                 } catch (e) {
                   print("Connection failed: $e");
-                } finally {
-                  if (mounted) setState(() => _isConnecting = false);
                 }
               },
         leading: _isConnecting
