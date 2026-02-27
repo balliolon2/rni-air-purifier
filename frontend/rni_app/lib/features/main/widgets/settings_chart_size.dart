@@ -82,26 +82,24 @@ class _TextFormFieldExampleState extends State<TextFormFieldExample> {
   bool isSuccess = false;
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 320,
-      height: 80,
+    return Expanded(
       child: Form(
         key: formKey,
         child: Row(
           children: [
             SizedBox(
-              width: 250,
+              width: 200,
               child: TextFormField(
                 forceErrorText: forceErrorText,
                 controller: controller,
                 decoration: const InputDecoration(
                   hintText: 'Chart Time Steps (seconds)',
+                  hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 validator: validator,
                 onChanged: onChanged,
               ),
             ),
-            const SizedBox(width: 8),
             if (isSuccess)
               const Icon(Icons.check, color: Colors.green)
             else
