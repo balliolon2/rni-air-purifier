@@ -143,11 +143,10 @@ class BluetoothProvider with ChangeNotifier {
   }
 
   // Disconnect from device
-  Future<void> disconnect() async {
+  Future<void> disconnectDevice() async {
     try {
       if (_connectedDevice != null) {
-        print("Disconnecting...");
-        await _connectedDevice?.disconnect();
+        await _bluetoothService.disconnectDevice(_connectedDevice!);
         print("Disconnected!");
       } else {
         print("Already disconnected!");

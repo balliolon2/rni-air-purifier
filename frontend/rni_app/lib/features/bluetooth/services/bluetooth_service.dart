@@ -78,7 +78,7 @@ class BlueService {
         withKeywords: keywords,
       );
     } catch (e) {
-      throw "Failed to start scan: $e";
+      throw Exception("Failed to start scan: $e");
     }
   }
 
@@ -86,7 +86,7 @@ class BlueService {
     try {
       await FlutterBluePlus.stopScan();
     } catch (e) {
-      throw "Failed to stop scan: $e";
+      throw Exception("Failed to stop scan: $e");
     }
   }
 
@@ -96,6 +96,14 @@ class BlueService {
       await device.connect(license: License.free);
     } catch (e) {
       throw Exception('Failed to connect: $e');
+    }
+  }
+
+  Future<void> disconnectDevice(BluetoothDevice device) async {
+    try {
+      await device.disconnect();
+    } catch (e) {
+      throw Exception("Couldn't disconnect: $e");
     }
   }
 
@@ -109,7 +117,7 @@ class BlueService {
         return String.fromCharCodes(value);
       });
     } catch (e) {
-      throw "Failed to listen to device: $e";
+      throw Exception("Failed to listen to device: $e");
     }
   }
 

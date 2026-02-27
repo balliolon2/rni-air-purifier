@@ -19,7 +19,7 @@ class ConnectedDevicePage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.bluetooth_disabled),
             onPressed: () {
-              context.read<BluetoothProvider>().disconnect();
+              context.read<BluetoothProvider>().disconnectDevice();
             },
           ),
         ],
