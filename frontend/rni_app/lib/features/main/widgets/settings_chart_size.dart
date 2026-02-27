@@ -73,9 +73,12 @@ class _TextFormFieldExampleState extends State<TextFormFieldExample> {
     setState(() {
       isSuccess = true;
     });
-    await Future.delayed(const Duration(milliseconds: 1500));
-    setState(() {
-      isSuccess = false;
+    await Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() {
+          isSuccess = false;
+        });
+      }
     });
   }
 
