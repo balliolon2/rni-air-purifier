@@ -59,7 +59,7 @@ class ConnectedDevicePrintScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Send button
+              // Send button TODO: Replace with actual input field and send logic
               ElevatedButton.icon(
                 onPressed: () => bluetooth.sendData("Hello ESP32!"),
                 icon: const Icon(Icons.send),

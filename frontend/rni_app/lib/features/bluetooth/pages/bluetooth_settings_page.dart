@@ -16,7 +16,6 @@ class BluetoothSettingsPage extends StatefulWidget {
 
 class _BluetoothSettingsPageState extends State<BluetoothSettingsPage> {
   @override
-  // Choose to show Device Page or Scanning Page
   Widget build(BuildContext context) {
     return const BluetoothScanningPage();
   }

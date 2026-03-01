@@ -36,7 +36,7 @@ class _DeviceItemState extends State<DeviceItem> {
                     widget.device,
                   );
                 } catch (e) {
-                  print("Connection failed: $e");
+                  throw Exception("Connection failed: $e");
                 }
               },
         leading: _isConnecting

@@ -19,7 +19,7 @@ class BluetoothScanButton extends StatelessWidget {
           showAlert(
             context,
             title: "Bluetooth Disabled",
-            message: "Please enable bluetooth",
+            message: "Please enable Bluetooth in your device settings",
           );
         }
       },
