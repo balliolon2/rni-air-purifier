@@ -7,18 +7,18 @@ class ChartTimeStepSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const TextFormFieldExample();
+    return const InputForm();
   }
 }
 
-class TextFormFieldExample extends StatefulWidget {
-  const TextFormFieldExample({super.key});
+class InputForm extends StatefulWidget {
+  const InputForm({super.key});
 
   @override
-  State<TextFormFieldExample> createState() => _TextFormFieldExampleState();
+  State<InputForm> createState() => _InputFormState();
 }
 
-class _TextFormFieldExampleState extends State<TextFormFieldExample> {
+class _InputFormState extends State<InputForm> {
   final TextEditingController controller = TextEditingController();
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   String? forceErrorText;
