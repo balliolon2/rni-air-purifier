@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:rni_app/features/bluetooth/providers/bluetooth_provider.dart';
+import 'package:rni_app/features/bluetooth/widgets/sendDatabutton.dart';
 import 'package:rni_app/features/main/widgets/live_pm_chart.dart';
 import 'package:rni_app/features/main/widgets/toggle_pm_chart_button.dart';
 
@@ -23,7 +26,18 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         elevation: 0,
       ),
-      body: const Center(child: Column(children: [LivePMChart()])),
+      body: Center(
+        child: Column(
+          children: [
+            const LivePMChart(),
+            context.watch<BluetoothProvider>().deviceIsConnected()
+                ? const SendDataButton(
+                    message: "Fan toggle",
+                  ) // TODO: sync fan status and change the widget from Button to Switch
+                : const SizedBox.shrink(), // Show nada
+          ],
+        ),
+      ),
       floatingActionButton: const TogglePMChartButton(),
     );
   }

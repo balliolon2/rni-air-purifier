@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 
 //live_chart_provider
 class ChartProvider with ChangeNotifier {
-  static const double _size = 10;
-  double get size => _size;
+  double _timeStep = 10;
+  double get timeStep => _timeStep;
 
   final List<FlSpot> _graphData = [];
   List<FlSpot> get graphData => _graphData;
@@ -18,6 +18,8 @@ class ChartProvider with ChangeNotifier {
   bool _chartOn = false;
   bool get chartOn => _chartOn;
 
+  bool _showDot = true;
+  bool get showDot => _showDot;
   /*
     METHODS:
   */
@@ -38,7 +40,7 @@ class ChartProvider with ChangeNotifier {
       return;
     }
     // Remove oldest point if we exceed size limit
-    _graphData.removeWhere((spot) => spot.x < -_size);
+    _graphData.removeWhere((spot) => spot.x < -_timeStep);
 
     // Add new point at x=0
     _graphData.add(FlSpot(0, newValue));
@@ -68,6 +70,16 @@ class ChartProvider with ChangeNotifier {
       _max = 0;
       _chartOn = true;
     }
+    notifyListeners();
+  }
+
+  void changeChartTime(double newTimeStep) {
+    _timeStep = newTimeStep;
+    notifyListeners();
+  }
+
+  void toggleDot() {
+    _showDot = !_showDot;
     notifyListeners();
   }
 }

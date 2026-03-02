@@ -19,6 +19,9 @@ class _TogglePMChartButtonState extends State<TogglePMChartButton> {
   Widget build(BuildContext context) {
     return Consumer<ChartProvider>(
       builder: (context, chart, _) {
+        final online =
+            chart.chartOn &&
+            context.watch<BluetoothProvider>().deviceIsConnected();
         return FloatingActionButton(
           onPressed: () {
             if (context.read<BluetoothProvider>().deviceIsConnected()) {
@@ -32,9 +35,7 @@ class _TogglePMChartButtonState extends State<TogglePMChartButton> {
             }
           },
           tooltip: 'Chart Toggle',
-          child: chart.chartOn
-              ? const Icon(Icons.stop)
-              : const Icon(Icons.play_arrow),
+          child: online ? const Icon(Icons.stop) : const Icon(Icons.play_arrow),
         );
       },
     );

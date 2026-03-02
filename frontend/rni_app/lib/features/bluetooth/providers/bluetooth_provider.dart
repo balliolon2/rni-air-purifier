@@ -1,3 +1,5 @@
+import 'dart:async' show StreamSubscription;
+
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:rni_app/features/bluetooth/services/bluetooth_service.dart';
 import 'package:rni_app/features/main/providers/live_chart_provider.dart';
@@ -51,22 +53,37 @@ import 'package:flutter/foundation.dart';
 class BluetoothProvider with ChangeNotifier {
   final BlueService _bluetoothService = BlueService();
 
-  // Connection State
+  ///---STATES---///
+
+  // Self State
+  bool _initialized = false; // True if already initialized Listeners
+  bool _deviceDisconnecting = false; // Don't log Error if intended
+
+  // Device Connection State
   BluetoothAdapterState _bluetoothAdapterState = BluetoothAdapterState.unknown;
   BluetoothDevice? _connectedDevice;
+  StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
 
-  // Device State
+  // Device Scanning State
   List<ScanResult> _scanResults = [];
-  String _receivedData = "";
   bool _isScanning = false;
-  Stream<String>? _deviceDataStream; // Listening device
+  Stream<String>? _deviceDataStream; // Device found
+  StreamSubscription<String>? _deviceDataSubscription;
 
-  // Consumer
+  // ESP32 State
+  String _receivedData = "";
+
+  // Error message (For showAlert)
+  String? _errorMessage;
+
+  ///---CONSUMERS---///
   final ChartProvider _chartProvider; //For ChartProvider.addPoint()
 
   BluetoothProvider(this._chartProvider);
 
-  // Conncection Getters
+  ///---GETTERS---///
+
+  // Connection Getters
   BluetoothAdapterState get bluetoothAdapterState => _bluetoothAdapterState;
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
@@ -74,46 +91,51 @@ class BluetoothProvider with ChangeNotifier {
   List<ScanResult> get scanResults => _scanResults;
   String get receivedData => _receivedData;
   bool get isScanning => _isScanning;
+  String? get errorMessage => _errorMessage;
 
+  // Initialize Functions
   void init() async {
+    if (_initialized) return; // Only initialize once
+    _initialized = true;
+
     await _bluetoothService.init();
     _listenToScanResults();
     _listenToScanningState();
     _listenToAdapter();
   }
 
+  /// ---------------- ///
+  /// DEVICE FUNCTIONS ///
+  /// ---------------- ///
   // Call BluetoothService to start scanning for bluetooth devices
   Future<void> startScan() async {
-    try {
-      // Check the Adapter state before scanning
-      if (_bluetoothAdapterState == BluetoothAdapterState.on) {
-        _scanResults.clear();
-        await _bluetoothService.startScan();
-        notifyListeners();
-      } else {
-        print("Bluetooth is not enabled");
-      }
-    } catch (e) {
-      throw "Failed to start scan: $e";
+    // Check the Adapter state before scanning
+    if (_bluetoothAdapterState == BluetoothAdapterState.on) {
+      _scanResults.clear();
+      await _bluetoothService.startScan();
+      notifyListeners();
+    } else {
+      print("Bluetooth is not enabled");
     }
   }
 
   // Call BluetoothService to stop scanning for bluetooth devices
   Future<void> stopScan() async {
-    try {
-      await _bluetoothService.stopScan();
-      notifyListeners();
-    } catch (e) {
-      throw Exception("Failed to stop scan: $e");
-    }
+    await _bluetoothService.stopScan();
+    notifyListeners();
   }
 
+  // Connect to ESP32 Device and listen to its connection state
   Future<void> connectToDevice(BluetoothDevice device) async {
     try {
       await _bluetoothService.stopScan();
       await _bluetoothService.connectToDevice(device); // Connect once
 
       _connectedDevice = device;
+
+      // Listen for unexpected disconnections (power off, out of range)
+      await _connectionStateSubscription?.cancel();
+      _listenToConnectionState(device);
 
       // Discover services
       await _bluetoothService.discoverServices(device);
@@ -124,53 +146,90 @@ class BluetoothProvider with ChangeNotifier {
         print("characteristics not found!");
         return;
       }
-      _deviceDataStream!.listen((data) {
-        _receivedData = data;
-        print("ESP32 says: $data");
 
-        // Parse and forward to ChartProvider
-        final parsed = double.tryParse(data.trim());
-        _chartProvider.addData(parsed); // Add data point to Chart
-
-        notifyListeners();
-      });
+      await _deviceDataSubscription?.cancel();
+      _listenToIncomingData();
 
       notifyListeners();
     } catch (e) {
-      print("Failed to connnect: $e");
+      print("Failed to connect: $e");
       notifyListeners();
     }
   }
 
-  // Disconnect from device
-  Future<void> disconnect() async {
-    try {
-      if (_connectedDevice != null) {
-        print("Disconnecting...");
-        await _connectedDevice?.disconnect();
-        print("Disconnected!");
-      } else {
-        print("Already disconnected!");
-      }
-      _connectedDevice = null;
-      _receivedData = "";
-
-      notifyListeners();
-    } catch (e) {
-      print("Failed to disconnect: $e");
+  // Disconnect from ESP32 device
+  Future<void> disconnectDevice() async {
+    _deviceDisconnecting = true;
+    if (_connectedDevice != null) {
+      await _bluetoothService.disconnectDevice(_connectedDevice!);
+      print("Disconnected!");
+    } else {
+      print("Already disconnected!");
     }
+
+    await _deviceDataSubscription?.cancel();
+    await _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = null;
+
+    _connectedDevice = null;
+    _receivedData = "";
+    _deviceDisconnecting = false;
+    notifyListeners();
   }
 
+  /// --------------- ///
+  /// ESP32 FUNCTIONS ///
+  /// --------------- ///
   // Send data to ESP32
   Future<void> sendData(String message) async {
-    try {
-      await _bluetoothService.sendData(message);
-    } catch (e) {
-      print("Send error: $e");
-    }
+    await _bluetoothService.sendData(message);
   }
 
-  // Listen to BluetoothService and notify Comsumers on scan state changed
+  // Send data to ESP32 with Ack check
+  Future<bool> sendDataWithAck(String message) async {
+    return await _bluetoothService.sendDataWithAck(message);
+  }
+
+  ///------------///
+  /// LISTENERS ///
+  ///-----------///
+
+  ///-----------------///
+  /// ESP32 LISTENERS ///
+  ///-----------------///
+  StreamSubscription<String> _listenToIncomingData() {
+    return _deviceDataSubscription = _deviceDataStream!.listen((data) {
+      _receivedData = data;
+      final parsed = double.tryParse(data.trim());
+      _chartProvider.addData(parsed);
+      notifyListeners();
+    });
+  }
+
+  StreamSubscription<BluetoothConnectionState> _listenToConnectionState(
+    BluetoothDevice device,
+  ) {
+    return _connectionStateSubscription = connectionState(device).listen((
+      state,
+    ) {
+      print("Connection state changed: $state");
+      if (state == BluetoothConnectionState.disconnected &&
+          _deviceDisconnecting == false) {
+        _setError(
+          "Device disconnected! Please check your device's connection.",
+        );
+        disconnectDevice();
+      }
+    });
+  }
+
+  Stream<BluetoothConnectionState> connectionState(BluetoothDevice device) {
+    return device.connectionState;
+  }
+
+  ///-------------------///
+  /// DEVICE LISTENERS ///
+  ///------------------///
   void _listenToScanningState() async {
     _bluetoothService.isScanning.listen((scanning) {
       print(scanning);
@@ -200,6 +259,9 @@ class BluetoothProvider with ChangeNotifier {
     });
   }
 
+  ///---------------------///
+  /// PERMISSION HANDLERS ///
+  ///---------------------///
   Future<void> requestPermissions() async {
     //TODO: add permission handler for IOS
     await [
@@ -214,5 +276,18 @@ class BluetoothProvider with ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  ///----------------///
+  /// Error Handlers ///
+  ///----------------///
+  void _setError(String message) {
+    _errorMessage = message;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
   }
 }

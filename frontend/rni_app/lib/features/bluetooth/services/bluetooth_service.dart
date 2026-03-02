@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 /// [BlueService] (Not to be confused with `BluetoothService` from `flutter_blue_plus` package)
@@ -78,7 +80,7 @@ class BlueService {
         withKeywords: keywords,
       );
     } catch (e) {
-      throw "Failed to start scan: $e";
+      throw Exception("Failed to start scan: $e");
     }
   }
 
@@ -86,7 +88,7 @@ class BlueService {
     try {
       await FlutterBluePlus.stopScan();
     } catch (e) {
-      throw "Failed to stop scan: $e";
+      throw Exception("Failed to stop scan: $e");
     }
   }
 
@@ -96,6 +98,14 @@ class BlueService {
       await device.connect(license: License.free);
     } catch (e) {
       throw Exception('Failed to connect: $e');
+    }
+  }
+
+  Future<void> disconnectDevice(BluetoothDevice device) async {
+    try {
+      await device.disconnect();
+    } catch (e) {
+      throw Exception("Couldn't disconnect: $e");
     }
   }
 
@@ -109,7 +119,7 @@ class BlueService {
         return String.fromCharCodes(value);
       });
     } catch (e) {
-      throw "Failed to listen to device: $e";
+      throw Exception("Failed to listen to device: $e");
     }
   }
 
@@ -118,6 +128,26 @@ class BlueService {
       await _rxCharacteristic!.write(message.codeUnits);
     } catch (e) {
       throw Exception('Failed to send data: $e');
+    }
+  }
+
+  Future<bool> sendDataWithAck(
+    String message, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    try {
+      await _rxCharacteristic!.write(message.codeUnits, withoutResponse: false);
+
+      // Wait for ESP32 to notify back within timeout
+      final response = await _txCharacteristic!.onValueReceived
+          .timeout(timeout)
+          .first;
+
+      return String.fromCharCodes(response).isNotEmpty;
+    } on TimeoutException {
+      throw Exception('ESP32 did not respond in time');
+    } catch (e) {
+      throw Exception('Failed: $e');
     }
   }
 

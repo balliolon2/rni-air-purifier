@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rni_app/features/bluetooth/providers/bluetooth_provider.dart';
+import 'package:rni_app/features/bluetooth/widgets/sendDatabutton.dart';
 
 class ConnectedDevicePrintScreen extends StatelessWidget {
   const ConnectedDevicePrintScreen({super.key});
@@ -58,13 +59,7 @@ class ConnectedDevicePrintScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Send button
-              ElevatedButton.icon(
-                onPressed: () => bluetooth.sendData("Hello ESP32!"),
-                icon: const Icon(Icons.send),
-                label: const Text("Send Test Message"),
-              ),
+              const SendDataButton(message: "Hello ESP32!"),
             ],
           ),
         );

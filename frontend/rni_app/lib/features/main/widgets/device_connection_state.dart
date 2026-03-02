@@ -7,8 +7,33 @@ import 'package:rni_app/features/bluetooth/providers/bluetooth_provider.dart';
 Green - ESP32 Device connected
 Red - ESP32 Device not found/connected
 */
-class DeviceConnectionState extends StatelessWidget {
+
+class DeviceConnectionState extends StatefulWidget {
   const DeviceConnectionState({super.key});
+
+  @override
+  State<DeviceConnectionState> createState() => _DeviceConnectionStateState();
+}
+
+class _DeviceConnectionStateState extends State<DeviceConnectionState> {
+  @override
+  // Show alert when error message is when ESP32 connection is lost
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final bluetooth = context.watch<BluetoothProvider>();
+    if (bluetooth.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showAlert(
+          context,
+          title: "Disconnected!",
+          message: bluetooth.errorMessage!,
+        );
+        bluetooth.clearError();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

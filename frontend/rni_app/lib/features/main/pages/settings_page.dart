@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
+import 'package:rni_app/features/main/providers/live_chart_provider.dart';
+import 'package:rni_app/features/main/widgets/settings_chart_size.dart';
 import 'package:rni_app/features/main/widgets/settings_switch.dart';
 import 'package:rni_app/features/main/providers/theme_provider.dart';
 
@@ -20,18 +23,28 @@ class SettingsPage extends StatelessWidget {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
-      body: Row(
-        children: [
-          Expanded(
-            child: SettingsSwitch(
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 5, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SettingsSwitch(
               text: 'Dark Theme',
               value: context.watch<ThemeProvider>().darkMode,
               onChanged: (_) {
                 context.read<ThemeProvider>().toggleTheme();
               },
             ),
-          ),
-        ],
+            SettingsSwitch(
+              text: 'Show Chart Dot',
+              value: context.watch<ChartProvider>().showDot,
+              onChanged: (_) {
+                context.read<ChartProvider>().toggleDot();
+              },
+            ),
+            const Row(children: [Gap(20), ChartTimeStepSetting()]),
+          ],
+        ),
       ),
     );
   }
