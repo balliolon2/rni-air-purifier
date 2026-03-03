@@ -126,7 +126,7 @@ class _LivePMChartState extends State<LivePMChart> {
 
                 // Y AXIS
                 leftTitles: AxisTitles(
-                  axisNameWidget: const Text('PM2.5 (µg/m³)'),
+                  axisNameWidget: const Text('Dust (mg/m³)'),
                   axisNameSize: 30,
                   sideTitles: SideTitles(
                     showTitles: true,
@@ -184,7 +184,7 @@ class _LivePMChartState extends State<LivePMChart> {
         Row(
           children: [
             Text(
-              'Average PM2.5 (in $timeStep seconds): ',
+              'Average dust (in $timeStep seconds): ',
               style: const TextStyle(fontSize: 16),
             ),
             Text(
