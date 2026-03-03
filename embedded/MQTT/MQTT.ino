@@ -1,6 +1,7 @@
 #include "DHTSensor.h"
 #include "DustSensor.h"
 #include "OLEDDisplay.h"
+#include "RelayControl.h"
 #include <BLE2902.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -37,6 +38,13 @@ class MyCallbacks : public BLECharacteristicCallbacks {
     if (rxValue.length() > 0) {
       Serial.print("Received: ");
       Serial.println(rxValue.c_str());
+
+      // ตรวจสอบคำสั่งเพื่อควบคุม Relay
+      if (rxValue == "ON") {
+        turnOnRelay();
+      } else if (rxValue == "OFF") {
+        turnOffRelay();
+      }
     }
   }
 };
@@ -82,6 +90,9 @@ void setup() {
 
   // Initialize OLED Display
   initOLEDDisplay();
+
+  // Initialize Relay
+  initRelay();
 }
 
 void loop() {
@@ -114,6 +125,10 @@ void loop() {
   // Update OLED display
   updateDisplay(currentDust, currentTemp, currentHum, deviceConnected);
 
+  // ทดสอบเปิด-ปิด Relay สลับกันทุกรอบการทำงาน
+  toggleRelay();
+
   // เซนเซอร์ DHT22 ทำงานค่อนข้างช้า ควรหน่วงเวลาอย่างน้อย 2 วินาที (2000 ms)
-  delay(2000);
+  // แต่ปรับเป็น 500ms ตามที่ต้องการทดสอบ Relay
+  delay(500);
 }
