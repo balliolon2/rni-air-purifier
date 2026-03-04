@@ -45,23 +45,26 @@ class _SendDataButtonState extends State<SendDataButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BluetoothProvider>(
-      builder: (context, bluetooth, child) {
-        return ElevatedButton.icon(
-          onPressed: !_isSending ? () => _sendData(bluetooth) : null,
-          icon: _isSending
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.send),
-          label: Text(_isSending ? "Sending..." : widget.message),
-        );
-      },
-    );
+    final isConnected = context.watch<BluetoothProvider>().deviceIsConnected();
+    return isConnected
+        ? Consumer<BluetoothProvider>(
+            builder: (context, bluetooth, child) {
+              return ElevatedButton.icon(
+                onPressed: !_isSending ? () => _sendData(bluetooth) : null,
+                icon: _isSending
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send),
+                label: Text(_isSending ? "Sending..." : widget.message),
+              );
+            },
+          )
+        : const SizedBox.shrink();
   }
 }

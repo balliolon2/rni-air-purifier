@@ -9,17 +9,37 @@
 #include <stdlib.h>
 
 #define DEVICE_NAME "ESP32_BT"
-#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // Device UUID
-#define CHARACTERISTIC_UUID_RX                                                 \
-  "6E400002-B5A3-F393-E0A9-E50E24DCCA9E" // Read PM2.5 Characteristic
-#define CHARACTERISTIC_UUID_TX                                                 \
-  "6E400003-B5A3-F393-E0A9-E50E24DCCA9E" // Write PM2.5 Characteristic
+#define SERVICE_UUID \
+  "6e400001-b5a3-f393-e0a9-e50e24dcca9e" // Device UUID
+#define CHARACTERISTIC_UUID_RX \
+  "6e400002-b5a3-f393-e0a9-e50e24dcca9e" // Read
+#define CHARACTERISTIC_UUID_DUST \
+  "6e400003-b5a3-f393-e0a9-e50e24dcca9e" // Write Dust
+#define CHARACTERISTIC_UUID_TEMP \
+  "6e400004-b5a3-f393-e0a9-e50e24dcca9e" // Write temperature
+#define CHARACTERISTIC_UUID_HUM \
+  "6e400005-b5a3-f393-e0a9-e50e24dcca9e" // Write Humidity
 
 BLEServer *pServer = NULL;
-BLECharacteristic *pTxCharacteristic;
+BLECharacteristic* pDustCharacteristic;
+BLECharacteristic* pTempCharacteristic;
+BLECharacteristic* pHumCharacteristic;
 
 bool deviceConnected = false;
 bool wasConnected = false; // ← Track previous state
+
+unsigned long lastDustSample = 0;
+unsigned long lastDHTSample  = 0;
+
+#define DUST_INTERVAL 500
+#define DHT_INTERVAL  2000
+
+float currentDust = 0;
+float currentTemp = 0;
+float currentHum  = 0;
+
+// Mutex to prevent simultaneous BLE writes from different tasks
+portMUX_TYPE bleMux = portMUX_INITIALIZER_UNLOCKED;
 
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer) {
@@ -60,16 +80,35 @@ void setup() {
   pServer->setCallbacks(new MyServerCallbacks());
 
   // Create BLE UART Service
-  BLEService *pService = pServer->createService(SERVICE_UUID);
+  BLEService* pService = pServer->createService( BLEUUID(SERVICE_UUID), 100);   // Increased handler count to 100 for multiple characteristics
 
   // TX Characteristic (ESP32 → Flutter)
-  pTxCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
-  pTxCharacteristic->addDescriptor(new BLE2902());
+  // --- Dust Characteristic ---
+  pDustCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_DUST,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  pDustCharacteristic->addDescriptor(new BLE2902());
+
+  // --- Temperature Characteristic ---
+  pTempCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_TEMP,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  pTempCharacteristic->addDescriptor(new BLE2902());
+
+  // --- Humidity Characteristic ---
+  pHumCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_HUM,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  pHumCharacteristic->addDescriptor(new BLE2902());
 
   // RX Characteristic (Flutter → ESP32)
-  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-      CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
+  BLECharacteristic* pRxCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_RX,
+    BLECharacteristic::PROPERTY_WRITE
+  );
   pRxCharacteristic->setCallbacks(new MyCallbacks());
 
   pService->start();
@@ -96,6 +135,8 @@ void setup() {
 }
 
 void loop() {
+  unsigned long now = millis();
+
   // Device just disconnected — restart advertising
   if (!deviceConnected && wasConnected) {
     delay(500); // Give BLE stack time to settle
@@ -109,26 +150,39 @@ void loop() {
     wasConnected = true;
   }
 
-  // Read sensor values
-  float currentDust = readDustDensity();
-  float currentTemp = readTemperature();
-  float currentHum = readHumidity();
+  // --- Dust Sensor: every 500ms ---
+  if (now - lastDustSample >= DUST_INTERVAL) {
+    lastDustSample = now;
+    currentDust = readDustDensity();
+    //currentDust = random(0,200);
 
-  if (deviceConnected) {
-    // Create a message payload (e.g., comma separated: dust,temp,humidity)
-    String msg = String(currentDust) + "," + String(currentTemp) + "," +
-                 String(currentHum);
-    pTxCharacteristic->setValue(msg.c_str());
-    pTxCharacteristic->notify();
+    if (deviceConnected) {
+      String msg = String(currentDust);
+      pDustCharacteristic->setValue(msg.c_str());
+      pDustCharacteristic->notify();
+    }
+
+    // ทดสอบเปิด-ปิด Relay สลับกันทุกรอบการทำงาน
+    toggleRelay();
   }
 
-  // Update OLED display
-  updateDisplay(currentDust, currentTemp, currentHum, deviceConnected);
+  // --- DHT Sensor: every 2000ms ---
+  if (now - lastDHTSample >= DHT_INTERVAL) {
+    lastDHTSample = now;
+    currentTemp = readTemperature();
+    currentHum  = readHumidity();
+    //currentTemp = 20 + random(20,40)/10;
+    //currentHum  = random(0,100);
 
-  // ทดสอบเปิด-ปิด Relay สลับกันทุกรอบการทำงาน
-  toggleRelay();
+    if (deviceConnected) {
+      pTempCharacteristic->setValue(String(currentTemp).c_str());
+      pTempCharacteristic->notify();
 
-  // เซนเซอร์ DHT22 ทำงานค่อนข้างช้า ควรหน่วงเวลาอย่างน้อย 2 วินาที (2000 ms)
-  // แต่ปรับเป็น 500ms ตามที่ต้องการทดสอบ Relay
-  delay(500);
+      pHumCharacteristic->setValue(String(currentHum).c_str());
+      pHumCharacteristic->notify();
+    }
+
+    // Update OLED only when DHT refreshes
+    updateDisplay(currentDust, currentTemp, currentHum, deviceConnected);
+  }
 }

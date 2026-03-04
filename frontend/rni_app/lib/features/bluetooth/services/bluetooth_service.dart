@@ -54,13 +54,29 @@ class BlueService {
   Stream<bool> get isScanning => FlutterBluePlus.isScanning;
 
   //BLE characteristic
-  BluetoothCharacteristic? _txCharacteristic;
+  BluetoothCharacteristic? _dustCharacteristic;
+  BluetoothCharacteristic? _tempCharacteristic;
+  BluetoothCharacteristic? _humCharacteristic;
   BluetoothCharacteristic? _rxCharacteristic;
 
-  //TODO: remove Hardcode UUID (Maybe not)
+  //TODO: remove Hardcode UUID (Maybe not yes)
   String serviceUUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-  String txUUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
   String rxUUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+  String dustTxUUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Dust Sensor
+  String tempTxUUID = "6e400004-b5a3-f393-e0a9-e50e24dcca9e"; // Temp Sensor
+  String humTxUUID = "6e400005-b5a3-f393-e0a9-e50e24dcca9e"; // Humidity Sensor
+
+  Stream<String>? listenToDust() => _createStream(_dustCharacteristic);
+  Stream<String>? listenToTemp() => _createStream(_tempCharacteristic);
+  Stream<String>? listenToHum() => _createStream(_humCharacteristic);
+
+  Stream<String>? _createStream(BluetoothCharacteristic? characteristic) {
+    if (characteristic == null) return null;
+    characteristic.setNotifyValue(true);
+    return characteristic.onValueReceived.map(
+      (value) => String.fromCharCodes(value),
+    );
+  }
 
   // Called from BluetoothProvider.init(). Only check if the class is initialized correctly
   Future<void> init() async {
@@ -109,20 +125,6 @@ class BlueService {
     }
   }
 
-  Stream<String>? listenToDevice(BluetoothDevice device) {
-    try {
-      if (_txCharacteristic == null) return null;
-
-      _txCharacteristic!.setNotifyValue(true);
-
-      return _txCharacteristic!.onValueReceived.map((value) {
-        return String.fromCharCodes(value);
-      });
-    } catch (e) {
-      throw Exception("Failed to listen to device: $e");
-    }
-  }
-
   Future<void> sendData(String message) async {
     try {
       await _rxCharacteristic!.write(message.codeUnits);
@@ -138,8 +140,7 @@ class BlueService {
     try {
       await _rxCharacteristic!.write(message.codeUnits, withoutResponse: false);
 
-      // Wait for ESP32 to notify back within timeout
-      final response = await _txCharacteristic!.onValueReceived
+      final response = await _rxCharacteristic!.onValueReceived
           .timeout(timeout)
           .first;
 
@@ -153,22 +154,30 @@ class BlueService {
 
   Future<void> discoverServices(BluetoothDevice device) async {
     try {
-      _txCharacteristic = null;
+      _dustCharacteristic = null;
+      _tempCharacteristic = null;
+      _humCharacteristic = null;
       _rxCharacteristic = null;
 
       final List<BluetoothService> services = await device.discoverServices();
       print("Found ${services.length} services");
 
       for (BluetoothService service in services) {
-        print("Service: ${service.uuid}");
         if (service.uuid.toString().toLowerCase() == serviceUUID) {
           for (BluetoothCharacteristic c in service.characteristics) {
-            print("Characteristic: ${c.uuid}");
-            if (c.uuid.toString().toLowerCase() == txUUID) {
-              _txCharacteristic = c;
-              print("TX found");
-            }
-            if (c.uuid.toString().toLowerCase() == rxUUID) {
+            final uuid = c.uuid.toString().toLowerCase();
+            print("Characteristic: $uuid");
+
+            if (uuid == dustTxUUID.toLowerCase()) {
+              _dustCharacteristic = c;
+              print("Dust TX found");
+            } else if (uuid == tempTxUUID.toLowerCase()) {
+              _tempCharacteristic = c;
+              print("Temp TX found");
+            } else if (uuid == humTxUUID.toLowerCase()) {
+              _humCharacteristic = c;
+              print("Hum TX found");
+            } else if (uuid == rxUUID.toLowerCase()) {
               _rxCharacteristic = c;
               print("RX found");
             }
@@ -176,11 +185,22 @@ class BlueService {
         }
       }
 
-      if (_txCharacteristic == null) {
-        throw Exception("TX characteristic not found, check if UUIDs == ESP32");
+      if (_dustCharacteristic == null &&
+          _tempCharacteristic == null &&
+          _humCharacteristic == null) {
+        throw Exception(
+          "No TX characteristics found — check UUIDs match ESP32",
+        );
       }
     } catch (e) {
       throw Exception('Failed to discover services: $e');
     }
+  }
+
+  void clearCharacteristics() {
+    _dustCharacteristic = null;
+    _tempCharacteristic = null;
+    _humCharacteristic = null;
+    _rxCharacteristic = null;
   }
 }

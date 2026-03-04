@@ -67,11 +67,15 @@ class BluetoothProvider with ChangeNotifier {
   // Device Scanning State
   List<ScanResult> _scanResults = [];
   bool _isScanning = false;
-  Stream<String>? _deviceDataStream; // Device found
-  StreamSubscription<String>? _deviceDataSubscription;
+  //Stream<String>? _deviceDataStream; // Device found
+  StreamSubscription<String>? _dustSubscription;
+  StreamSubscription<String>? _tempSubscription;
+  StreamSubscription<String>? _humSubscription;
 
   // ESP32 State
-  String _receivedData = "";
+  String _dustData = "";
+  String _tempData = "";
+  String _humData = "";
 
   // Error message (For showAlert)
   String? _errorMessage;
@@ -87,9 +91,14 @@ class BluetoothProvider with ChangeNotifier {
   BluetoothAdapterState get bluetoothAdapterState => _bluetoothAdapterState;
   BluetoothDevice? get connectedDevice => _connectedDevice;
 
+  //ESP32 Getters
+  String get dustData => _dustData;
+  String get tempData => _tempData;
+  String get humData => _humData;
+
   // Device state Getters
   List<ScanResult> get scanResults => _scanResults;
-  String get receivedData => _receivedData;
+  //String get receivedData => _receivedData;
   bool get isScanning => _isScanning;
   String? get errorMessage => _errorMessage;
 
@@ -129,26 +138,44 @@ class BluetoothProvider with ChangeNotifier {
   Future<void> connectToDevice(BluetoothDevice device) async {
     try {
       await _bluetoothService.stopScan();
-      await _bluetoothService.connectToDevice(device); // Connect once
+      await _bluetoothService.connectToDevice(device);
 
       _connectedDevice = device;
 
-      // Listen for unexpected disconnections (power off, out of range)
       await _connectionStateSubscription?.cancel();
       _listenToConnectionState(device);
 
-      // Discover services
       await _bluetoothService.discoverServices(device);
 
-      // Listen to incoming data
-      _deviceDataStream = _bluetoothService.listenToDevice(device);
-      if (_deviceDataStream == null) {
-        print("characteristics not found!");
+      // Cancel old subscriptions
+      await _dustSubscription?.cancel();
+      await _tempSubscription?.cancel();
+      await _humSubscription?.cancel();
+
+      // Listen to each sensor separately
+      _dustSubscription = _bluetoothService.listenToDust()?.listen((data) {
+        _dustData = data;
+        final parsed = double.tryParse(data.trim());
+        _chartProvider.addData(parsed);
+        notifyListeners();
+      });
+
+      _tempSubscription = _bluetoothService.listenToTemp()?.listen((data) {
+        _tempData = data;
+        notifyListeners();
+      });
+
+      _humSubscription = _bluetoothService.listenToHum()?.listen((data) {
+        _humData = data;
+        notifyListeners();
+      });
+
+      if (_dustSubscription == null &&
+          _tempSubscription == null &&
+          _humSubscription == null) {
+        print("No characteristics found!");
         return;
       }
-
-      await _deviceDataSubscription?.cancel();
-      _listenToIncomingData();
 
       notifyListeners();
     } catch (e) {
@@ -160,20 +187,29 @@ class BluetoothProvider with ChangeNotifier {
   // Disconnect from ESP32 device
   Future<void> disconnectDevice() async {
     _deviceDisconnecting = true;
+
     if (_connectedDevice != null) {
       await _bluetoothService.disconnectDevice(_connectedDevice!);
+      _bluetoothService.clearCharacteristics();
       print("Disconnected!");
-    } else {
-      print("Already disconnected!");
     }
 
-    await _deviceDataSubscription?.cancel();
+    await _dustSubscription?.cancel();
+    await _tempSubscription?.cancel();
+    await _humSubscription?.cancel();
     await _connectionStateSubscription?.cancel();
+
+    _dustSubscription = null;
+    _tempSubscription = null;
+    _humSubscription = null;
     _connectionStateSubscription = null;
 
     _connectedDevice = null;
-    _receivedData = "";
+    _dustData = "";
+    _tempData = "";
+    _humData = "";
     _deviceDisconnecting = false;
+
     notifyListeners();
   }
 
@@ -197,14 +233,6 @@ class BluetoothProvider with ChangeNotifier {
   ///-----------------///
   /// ESP32 LISTENERS ///
   ///-----------------///
-  StreamSubscription<String> _listenToIncomingData() {
-    return _deviceDataSubscription = _deviceDataStream!.listen((data) {
-      _receivedData = data;
-      final parsed = double.tryParse(data.trim());
-      _chartProvider.addData(parsed);
-      notifyListeners();
-    });
-  }
 
   StreamSubscription<BluetoothConnectionState> _listenToConnectionState(
     BluetoothDevice device,

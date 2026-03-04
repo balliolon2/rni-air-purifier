@@ -42,7 +42,7 @@ class SettingsPage extends StatelessWidget {
                 context.read<ChartProvider>().toggleDot();
               },
             ),
-            const Row(children: [Gap(20), ChartTimeStepSetting()]),
+            const Row(children: [Gap(20), SettingsChartSize()]),
           ],
         ),
       ),

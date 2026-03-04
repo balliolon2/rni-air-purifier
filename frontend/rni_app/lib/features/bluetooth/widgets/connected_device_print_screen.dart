@@ -46,9 +46,9 @@ class ConnectedDevicePrintScreen extends StatelessWidget {
                   child: SingleChildScrollView(
                     reverse: true,
                     child: Text(
-                      bluetooth.receivedData.isEmpty
+                      bluetooth.dustData.isEmpty
                           ? "Waiting for data from ESP32..."
-                          : bluetooth.receivedData,
+                          : "${bluetooth.dustData} , ${bluetooth.tempData} , ${bluetooth.humData}",
                       style: const TextStyle(
                         color: Colors.greenAccent,
                         fontFamily: 'monospace',

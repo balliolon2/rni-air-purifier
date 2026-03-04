@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rni_app/features/main/providers/live_chart_provider.dart';
 
-class ChartTimeStepSetting extends StatelessWidget {
-  const ChartTimeStepSetting({super.key});
+class SettingsChartSize extends StatelessWidget {
+  const SettingsChartSize({super.key});
 
   @override
   Widget build(BuildContext context) {
