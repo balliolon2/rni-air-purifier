@@ -222,8 +222,13 @@ class BluetoothProvider with ChangeNotifier {
   }
 
   // Send data to ESP32 with Ack check
-  Future<bool> sendDataWithAck(String message) async {
-    return await _bluetoothService.sendDataWithAck(message);
+  Future<void> sendDataWithAck(String message) async {
+    final response = await _bluetoothService.sendDataWithAck(message);
+    if (response == "Fan:ON") {
+      _chartProvider.setFanState(true);
+    } else if (response == "Fan:OFF") {
+      _chartProvider.setFanState(false);
+    }
   }
 
   ///------------///

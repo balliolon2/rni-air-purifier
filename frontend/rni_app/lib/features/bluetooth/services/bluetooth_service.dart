@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:rni_app/features/main/providers/live_chart_provider.dart';
 
 /// [BlueService] (Not to be confused with `BluetoothService` from `flutter_blue_plus` package)
 ///
@@ -58,17 +59,24 @@ class BlueService {
   BluetoothCharacteristic? _tempCharacteristic;
   BluetoothCharacteristic? _humCharacteristic;
   BluetoothCharacteristic? _rxCharacteristic;
+  BluetoothCharacteristic? _responseCharacteristic;
 
-  //TODO: remove Hardcode UUID (Maybe not yes)
   String serviceUUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
   String rxUUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
   String dustTxUUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Dust Sensor
   String tempTxUUID = "6e400004-b5a3-f393-e0a9-e50e24dcca9e"; // Temp Sensor
   String humTxUUID = "6e400005-b5a3-f393-e0a9-e50e24dcca9e"; // Humidity Sensor
+  String responseUUID =
+      "6e400006-b5a3-f393-e0a9-e50e24dcca9e"; // Listen to ESP32 Response
 
-  Stream<String>? listenToDust() => _createStream(_dustCharacteristic);
-  Stream<String>? listenToTemp() => _createStream(_tempCharacteristic);
-  Stream<String>? listenToHum() => _createStream(_humCharacteristic);
+  Stream<String>? listenToDust() =>
+      _createStream(_dustCharacteristic); // Listen to Dust sensor Readings
+  Stream<String>? listenToTemp() =>
+      _createStream(_tempCharacteristic); // Listen to DHT22 Temp Readings
+  Stream<String>? listenToHum() =>
+      _createStream(_humCharacteristic); // Listen to DHT22 Humidity Readings
+  Stream<String>? listenToResponse() =>
+      _createStream(_responseCharacteristic); // Listen to ACK Response
 
   Stream<String>? _createStream(BluetoothCharacteristic? characteristic) {
     if (characteristic == null) return null;
@@ -133,31 +141,31 @@ class BlueService {
     }
   }
 
-  Future<bool> sendDataWithAck(
+  Future<String> sendDataWithAck(
     String message, {
     Duration timeout = const Duration(seconds: 3),
   }) async {
+    if (_rxCharacteristic == null) throw Exception('RX not found');
+    if (_responseCharacteristic == null) throw Exception('Response not found');
+
+    final responseFuture = _responseCharacteristic!.onValueReceived
+        .timeout(timeout, onTimeout: (sink) => sink.add([]))
+        .first;
+
+    await _rxCharacteristic!.write(message.codeUnits, withoutResponse: false);
+
     try {
-      await _rxCharacteristic!.write(message.codeUnits, withoutResponse: false);
-
-      final response = await _rxCharacteristic!.onValueReceived
-          .timeout(timeout)
-          .first;
-
-      return String.fromCharCodes(response).isNotEmpty;
-    } on TimeoutException {
-      throw Exception('ESP32 did not respond in time');
+      final response = await responseFuture;
+      if (response.isEmpty) throw Exception('ESP32 did not respond in time');
+      return String.fromCharCodes(response);
     } catch (e) {
-      throw Exception('Failed: $e');
+      throw Exception('Failed awaiting response: $e');
     }
   }
 
   Future<void> discoverServices(BluetoothDevice device) async {
     try {
-      _dustCharacteristic = null;
-      _tempCharacteristic = null;
-      _humCharacteristic = null;
-      _rxCharacteristic = null;
+      clearCharacteristics();
 
       final List<BluetoothService> services = await device.discoverServices();
       print("Found ${services.length} services");
@@ -180,6 +188,10 @@ class BlueService {
             } else if (uuid == rxUUID.toLowerCase()) {
               _rxCharacteristic = c;
               print("RX found");
+            } else if (uuid == responseUUID.toLowerCase()) {
+              _responseCharacteristic = c;
+              await _responseCharacteristic!.setNotifyValue(true);
+              print("Response(ACK) found");
             }
           }
         }
@@ -202,5 +214,6 @@ class BlueService {
     _tempCharacteristic = null;
     _humCharacteristic = null;
     _rxCharacteristic = null;
+    _responseCharacteristic = null;
   }
 }

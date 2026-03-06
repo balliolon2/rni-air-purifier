@@ -20,6 +20,9 @@ class ChartProvider with ChangeNotifier {
 
   bool _showDot = true;
   bool get showDot => _showDot;
+
+  bool _fanOn = false;
+  bool get fanOn => _fanOn;
   /*
     METHODS:
   */
@@ -80,6 +83,11 @@ class ChartProvider with ChangeNotifier {
 
   void toggleDot() {
     _showDot = !_showDot;
+    notifyListeners();
+  }
+
+  void setFanState(bool value) {
+    _fanOn = value;
     notifyListeners();
   }
 }

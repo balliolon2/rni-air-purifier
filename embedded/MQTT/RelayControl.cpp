@@ -5,11 +5,13 @@
 
 void initRelay() {
   // ตั้งค่าให้ขา 27 เป็น OUTPUT เพื่อส่งสัญญาณไฟออกไป
-  pinMode(RELAY_PIN, OUTPUT);
 
   // โมดูล Relay ส่วนใหญ่ทำงานแบบ Active Low (ส่ง LOW = ทำงาน, ส่ง HIGH = หยุดทำงาน)
   // ตั้งค่าเริ่มต้นให้มัน "ปิด" ไว้ก่อน
   digitalWrite(RELAY_PIN, HIGH);
+
+  pinMode(RELAY_PIN, OUTPUT);
+
   Serial.println("Relay initialized (OFF).");
 }
 
@@ -23,9 +25,9 @@ void turnOffRelay() {
   Serial.println("Relay: OFF");
 }
 
-void toggleRelay() {
+bool toggleRelay() {
   // สลับสถานะของ Relay โดยจำสถานะเดิมไว้
-  static bool isRelayOn = false;
+  bool isRelayOn = false;
 
   if (isRelayOn) {
     turnOffRelay();
@@ -34,4 +36,5 @@ void toggleRelay() {
     turnOnRelay();
     isRelayOn = true;
   }
+  return isRelayOn;
 }

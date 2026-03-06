@@ -13,6 +13,6 @@ void turnOnRelay();
 void turnOffRelay();
 
 // สลับสถานะ Relay (เปิด/ปิด สลับกัน)
-void toggleRelay();
+bool toggleRelay();
 
 #endif

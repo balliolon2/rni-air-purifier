@@ -19,11 +19,14 @@
   "6e400004-b5a3-f393-e0a9-e50e24dcca9e" // Write temperature
 #define CHARACTERISTIC_UUID_HUM \
   "6e400005-b5a3-f393-e0a9-e50e24dcca9e" // Write Humidity
+#define CHARACTERISTIC_UUID_RESPONSE \
+  "6e400006-b5a3-f393-e0a9-e50e24dcca9e" // Write Flutter ACK response
 
 BLEServer *pServer = NULL;
 BLECharacteristic* pDustCharacteristic;
 BLECharacteristic* pTempCharacteristic;
 BLECharacteristic* pHumCharacteristic;
+BLECharacteristic* pResponseCharacteristic;
 
 bool deviceConnected = false;
 bool wasConnected = false; // ← Track previous state
@@ -64,6 +67,10 @@ class MyCallbacks : public BLECharacteristicCallbacks {
         turnOnRelay();
       } else if (rxValue == "OFF") {
         turnOffRelay();
+      } else if (rxValue == "Fan toggle") {
+        bool relayState = toggleRelay();
+        pResponseCharacteristic->setValue(relayState ? "Fan:ON" : "Fan:OFF");
+        pResponseCharacteristic->notify();
       }
     }
   }
@@ -104,12 +111,21 @@ void setup() {
   );
   pHumCharacteristic->addDescriptor(new BLE2902());
 
+  // Response Characteristic (ESP32 → Flutter)
+  pResponseCharacteristic = pService->createCharacteristic(
+    CHARACTERISTIC_UUID_RESPONSE,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  pResponseCharacteristic->addDescriptor(new BLE2902());
+
   // RX Characteristic (Flutter → ESP32)
   BLECharacteristic* pRxCharacteristic = pService->createCharacteristic(
     CHARACTERISTIC_UUID_RX,
     BLECharacteristic::PROPERTY_WRITE
   );
   pRxCharacteristic->setCallbacks(new MyCallbacks());
+
+
 
   pService->start();
 
@@ -161,9 +177,6 @@ void loop() {
       pDustCharacteristic->setValue(msg.c_str());
       pDustCharacteristic->notify();
     }
-
-    // ทดสอบเปิด-ปิด Relay สลับกันทุกรอบการทำงาน
-    toggleRelay();
 
     // Update OLED
     updateDisplay(currentDust, currentTemp, currentHum, deviceConnected);
