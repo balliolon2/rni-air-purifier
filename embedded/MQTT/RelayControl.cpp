@@ -3,6 +3,8 @@
 // กำหนดขาที่ต่อกับพิน IN ของ Relay
 #define RELAY_PIN 33
 
+bool isRelayOn = false;
+
 void initRelay() {
   // ตั้งค่าให้ขา 27 เป็น OUTPUT เพื่อส่งสัญญาณไฟออกไป
 
@@ -16,25 +18,27 @@ void initRelay() {
 }
 
 void turnOnRelay() {
-  digitalWrite(RELAY_PIN, LOW);
-  Serial.println("Relay: ON");
+  if (!isRelayOn) {
+    digitalWrite(RELAY_PIN, LOW);
+    Serial.println("Relay: ON");
+    isRelayOn = true;
+  }
 }
 
 void turnOffRelay() {
-  digitalWrite(RELAY_PIN, HIGH);
-  Serial.println("Relay: OFF");
+  if (isRelayOn) {
+    digitalWrite(RELAY_PIN, HIGH);
+    Serial.println("Relay: OFF");
+    isRelayOn = false;
+  }
 }
 
 bool toggleRelay() {
-  // สลับสถานะของ Relay โดยจำสถานะเดิมไว้
-  bool isRelayOn = false;
-
+  // สลับสถานะของ Relay
   if (isRelayOn) {
     turnOffRelay();
-    isRelayOn = false;
   } else {
     turnOnRelay();
-    isRelayOn = true;
   }
   return isRelayOn;
 }
