@@ -9,37 +9,35 @@
 #include <stdlib.h>
 
 #define DEVICE_NAME "ESP32_BT"
-#define SERVICE_UUID \
-  "6e400001-b5a3-f393-e0a9-e50e24dcca9e" // Device UUID
-#define CHARACTERISTIC_UUID_RX \
-  "6e400002-b5a3-f393-e0a9-e50e24dcca9e" // Read
-#define CHARACTERISTIC_UUID_DUST \
+#define SERVICE_UUID "6e400001-b5a3-f393-e0a9-e50e24dcca9e" // Device UUID
+#define CHARACTERISTIC_UUID_RX "6e400002-b5a3-f393-e0a9-e50e24dcca9e" // Read
+#define CHARACTERISTIC_UUID_DUST                                               \
   "6e400003-b5a3-f393-e0a9-e50e24dcca9e" // Write Dust
-#define CHARACTERISTIC_UUID_TEMP \
+#define CHARACTERISTIC_UUID_TEMP                                               \
   "6e400004-b5a3-f393-e0a9-e50e24dcca9e" // Write temperature
-#define CHARACTERISTIC_UUID_HUM \
+#define CHARACTERISTIC_UUID_HUM                                                \
   "6e400005-b5a3-f393-e0a9-e50e24dcca9e" // Write Humidity
-#define CHARACTERISTIC_UUID_RESPONSE \
+#define CHARACTERISTIC_UUID_RESPONSE                                           \
   "6e400006-b5a3-f393-e0a9-e50e24dcca9e" // Write Flutter ACK response
 
 BLEServer *pServer = NULL;
-BLECharacteristic* pDustCharacteristic;
-BLECharacteristic* pTempCharacteristic;
-BLECharacteristic* pHumCharacteristic;
-BLECharacteristic* pResponseCharacteristic;
+BLECharacteristic *pDustCharacteristic;
+BLECharacteristic *pTempCharacteristic;
+BLECharacteristic *pHumCharacteristic;
+BLECharacteristic *pResponseCharacteristic;
 
 bool deviceConnected = false;
 bool wasConnected = false; // ← Track previous state
 
 unsigned long lastDustSample = 0;
-unsigned long lastDHTSample  = 0;
+unsigned long lastDHTSample = 0;
 
 #define DUST_INTERVAL 500
-#define DHT_INTERVAL  2000
+#define DHT_INTERVAL 2000
 
 float currentDust = 0;
 float currentTemp = 0;
-float currentHum  = 0;
+float currentHum = 0;
 
 // Mutex to prevent simultaneous BLE writes from different tasks
 portMUX_TYPE bleMux = portMUX_INITIALIZER_UNLOCKED;
@@ -87,45 +85,35 @@ void setup() {
   pServer->setCallbacks(new MyServerCallbacks());
 
   // Create BLE UART Service
-  BLEService* pService = pServer->createService( BLEUUID(SERVICE_UUID), 100);   // Increased handler count to 100 for multiple characteristics
+  BLEService *pService = pServer->createService(
+      BLEUUID(SERVICE_UUID),
+      100); // Increased handler count to 100 for multiple characteristics
 
   // TX Characteristic (ESP32 → Flutter)
   // --- Dust Characteristic ---
   pDustCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_DUST,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+      CHARACTERISTIC_UUID_DUST, BLECharacteristic::PROPERTY_NOTIFY);
   pDustCharacteristic->addDescriptor(new BLE2902());
 
   // --- Temperature Characteristic ---
   pTempCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_TEMP,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+      CHARACTERISTIC_UUID_TEMP, BLECharacteristic::PROPERTY_NOTIFY);
   pTempCharacteristic->addDescriptor(new BLE2902());
 
   // --- Humidity Characteristic ---
   pHumCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_HUM,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+      CHARACTERISTIC_UUID_HUM, BLECharacteristic::PROPERTY_NOTIFY);
   pHumCharacteristic->addDescriptor(new BLE2902());
 
   // Response Characteristic (ESP32 → Flutter)
   pResponseCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_RESPONSE,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
+      CHARACTERISTIC_UUID_RESPONSE, BLECharacteristic::PROPERTY_NOTIFY);
   pResponseCharacteristic->addDescriptor(new BLE2902());
 
   // RX Characteristic (Flutter → ESP32)
-  BLECharacteristic* pRxCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_RX,
-    BLECharacteristic::PROPERTY_WRITE
-  );
+  BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+      CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
   pRxCharacteristic->setCallbacks(new MyCallbacks());
-
-
 
   pService->start();
 
@@ -170,7 +158,14 @@ void loop() {
   if (now - lastDustSample >= DUST_INTERVAL) {
     lastDustSample = now;
     currentDust = readDustDensity();
-    //currentDust = random(0,200);
+    // currentDust = random(0,200);
+
+    // ควบคุมพัดลมอัตโนมัติจากค่าฝุ่น
+    if (currentDust > 50.0) {
+      turnOnRelay();
+    } else if (currentDust < 30.0) {
+      turnOffRelay();
+    }
 
     if (deviceConnected) {
       String msg = String(currentDust);
@@ -186,9 +181,9 @@ void loop() {
   if (now - lastDHTSample >= DHT_INTERVAL) {
     lastDHTSample = now;
     currentTemp = readTemperature();
-    currentHum  = readHumidity();
-    //currentTemp = 20 + random(20,40)/10;
-    //currentHum  = random(0,100);
+    currentHum = readHumidity();
+    // currentTemp = 20 + random(20,40)/10;
+    // currentHum  = random(0,100);
 
     if (deviceConnected) {
       pTempCharacteristic->setValue(String(currentTemp).c_str());
